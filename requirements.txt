@@ -1,0 +1,15 @@
+# Уберите apache-airflow==2.5.3, 
+# если вы используете базовый образ apache/airflow уже с установленной версией.
+
+# Пакеты для Python-скриптов
+pandas==2.0.0
+
+
+# PostgreSQL driver
+psycopg2-binary==2.9.5
+
+# Чтобы не конфликтовать с SQLAlchemy 2.0
+sqlalchemy<2.0
+
+
+

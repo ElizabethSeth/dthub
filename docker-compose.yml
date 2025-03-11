@@ -1,0 +1,85 @@
+version: '3'  # Можно убрать, если docker compose ругается на устаревший формат
+
+services:
+  airflow-db:
+    image: postgres:14
+    container_name: airflow-db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    networks:
+      - airflow-net
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  airflow-webserver:
+    build: .
+    container_name: airflow-webserver
+    depends_on:
+      - airflow-db
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      - AIRFLOW__WEBSERVER__SECRET_KEY=mysecretkey123
+      - AIRFLOW__API__AUTH_BACKEND=airflow.api.auth.backend.basic_auth
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./scripts:/opt/airflow/scripts
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username admin --password admin --firstname admin --lastname admin --role Admin --email admin@example.com || true &&
+        airflow webserver --port 8080 --host 0.0.0.0
+      "
+
+    networks:
+      - airflow-net
+
+  flask-webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    container_name: flask-webapp
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./flask_app:/app
+    depends_on:
+      - airflow-webserver
+    networks:
+      - airflow-net
+
+  airflow-scheduler:
+    build: .
+    container_name: airflow-scheduler
+    depends_on:
+      - airflow-webserver
+      - airflow-db
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      - AIRFLOW__WEBSERVER__SECRET_KEY=mysecretkey123
+      - AIRFLOW__API__AUTH_BACKEND=airflow.api.auth.backend.basic_auth
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./scripts:/opt/airflow/scripts
+    command: >
+      bash -c "
+        airflow scheduler
+      "
+    networks:
+      - airflow-net
+
+networks:
+  airflow-net:
+
+volumes:
+  postgres_data:
+
+
+
